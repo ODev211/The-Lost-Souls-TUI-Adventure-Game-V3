@@ -1,0 +1,1981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Adventure Game (Offline)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation; /* Disables double-tap to zoom on mobile */
+        }
+        /* Hide scrollbars */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        /* Typewriter effect */
+        .typewriter {
+            overflow: hidden;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            animation: typing 3.5s steps(40, end);
+        }
+
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+
+        /* Heart icons */
+        .heart {
+            display: inline-block;
+            color: red;
+            font-size: 1.5rem; /* 24px */
+        }
+
+        .heart-empty {
+            color: #4b5563; /* gray-600 */
+        }
+
+        /* Ensure game screen is hidden by default */
+        #gameScreen {
+            display: none;
+        }
+
+        /* Ensure all modals are hidden by default */
+        #inventoryModal, #traderModal, #itemDetailModal, #potionDetailModal, #dropConfirmModal, #errorModal, #gameOverModal {
+            display: none;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen no-scrollbar">
+
+    <!-- App Container -->
+    <div class="w-full max-w-lg h-screen max-h-[100vh] bg-gray-900 shadow-2xl rounded-lg overflow-hidden flex flex-col relative no-scrollbar">
+
+        <!-- 1. Start Screen -->
+        <div id="startScreen" class="flex flex-col items-center justify-center h-full p-8 text-center">
+            <h1 class="text-4xl font-bold text-white mb-4">Adventure Game</h1>
+            <p class="text-lg text-gray-400 mb-12">Welcome, adventurer. A new journey awaits.</p>
+            <div class="w-full max-w-xs">
+                <button id="enterButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg transition duration-300 mb-4">
+                    Enter
+                </button>
+                <button id="exitButton" class="w-full bg-gray-700 hover:bg-gray-800 text-gray-300 font-bold py-3 px-6 rounded-lg text-lg transition duration-300">
+                    Exit
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. Continue / New Game Screen -->
+        <div id="continueScreen" class="hidden flex-col items-center justify-center h-full p-8 text-center">
+            <h2 class="text-3xl font-bold text-white mb-6">Welcome Back</h2>
+            <div id="saveDataSummary" class="text-left bg-gray-800 p-4 rounded-lg mb-8 w-full max-w-xs">
+                <!-- Save data will be injected here -->
+            </div>
+            <div class="w-full max-w-xs">
+                <button id="continueGameButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg transition duration-300 mb-4">
+                    Continue
+                </button>
+                <button id="newGameButton" class="w-full bg-gray-700 hover:bg-gray-800 text-gray-300 font-bold py-3 px-6 rounded-lg text-lg transition duration-300">
+                    Start New Game
+                </button>
+            </div>
+        </div>
+
+        <!-- 3. New Game Confirmation (Delete Save) -->
+        <div id="newGameConfirmScreen" class="hidden flex-col items-center justify-center h-full p-8 text-center">
+            <h2 class="text-3xl font-bold text-yellow-400 mb-4">Warning!</h2>
+            <p class="text-gray-300 mb-6">Starting a new game will delete your existing save. Are you sure?</p>
+            <div id="saveDataSummaryDelete" class="text-left bg-gray-800 p-4 rounded-lg mb-8 w-full max-w-xs">
+                <!-- Save data will be injected here -->
+            </div>
+            <div class="w-full max-w-xs">
+                <button id="confirmDeleteButton" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg transition duration-300 mb-4">
+                    Yes, Delete and Start New
+                </button>
+                <button id="cancelDeleteButton" class="w-full bg-gray-700 hover:bg-gray-800 text-gray-300 font-bold py-3 px-6 rounded-lg text-lg transition duration-300">
+                    Cancel
+                </button>
+            </div>
+        </div>
+
+        <!-- 4. Username Input Screen -->
+        <div id="usernameScreen" class="hidden flex-col items-center justify-center h-full p-8">
+            <h2 class="text-3xl font-bold text-white mb-6">Create Your Profile</h2>
+            <p class="text-gray-400 mb-8">Please enter your adventurer's name.</p>
+            <input type="text" id="usernameInput" class="w-full max-w-xs bg-gray-800 border-2 border-gray-700 text-white py-3 px-4 rounded-lg text-lg focus:outline-none focus:border-blue-500" placeholder="e.g., Kaelen">
+            <button id="startGameButton" class="w-full max-w-xs mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg transition duration-300">
+                Begin Adventure
+            </button>
+        </div>
+
+        <!-- 5. Main Game Screen -->
+        <div id="gameScreen" class="h-full flex-col">
+            <!-- Top Stats Bar -->
+            <div class="bg-gray-950 p-3 shadow-md">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <!-- Health Bar -->
+                        <div id="healthBar" class="flex space-x-1">
+                            <!-- Hearts will be injected here -->
+                        </div>
+                        <div>
+                            <span id="usernameDisplay" class="font-bold text-white">Username</span>
+                            <div class="text-sm text-gray-400">
+                                <span>Chapter: <span id="chapterDisplay">1</span></span>
+                                <span class="ml-3">Level: <span id="levelDisplay">1</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-yellow-400 font-bold">
+                            <span id="coinsDisplay">0</span> Coins
+                        </span>
+                        <button id="inventoryButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                            Inventory
+                        </button>
+                        <button id="exitGameButton" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                            Exit
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Text Area -->
+            <div id="gameTextWrapper" class="flex-grow p-6 overflow-y-auto no-scrollbar relative">
+                <p id="gameText" class="text-lg text-gray-300 leading-relaxed whitespace-pre-wrap"></p>
+                <!-- Notification Area -->
+                <div id="notificationArea" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-500 text-white text-sm font-bold py-2 px-4 rounded-lg shadow-lg opacity-0 transition-opacity duration-500">
+                    <!-- Notifications here -->
+                </div>
+            </div>
+
+            <!-- Choice Buttons Area -->
+            <div id="choiceButtons" class="p-4 bg-gray-900 border-t border-gray-800">
+                <!-- Choices will be injected here -->
+            </div>
+        </div>
+
+        <!-- 6. Inventory Modal -->
+        <div id="inventoryModal" class="absolute inset-0 bg-gray-900 bg-opacity-95 p-6 flex-col overflow-y-auto no-scrollbar">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-white">Inventory</h2>
+                <button id="closeInventoryButton" class="text-gray-400 hover:text-white text-4xl">&times;</button>
+            </div>
+
+            <!-- Items Section -->
+            <h3 class="text-xl font-semibold text-blue-400 mb-2">Items <span id="itemSlotDisplay" class="text-sm text-gray-400 font-normal">(0 / 0 slots free)</span></h3>
+            <hr class="border-gray-700 mb-4">
+            <div id="inventoryItemsList" class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+                <!-- Item buttons injected here -->
+            </div>
+
+            <!-- Potions Section -->
+            <h3 class="text-xl font-semibold text-green-400 mb-2">Potions <span id="potionSlotDisplay" class="text-sm text-gray-400 font-normal">(0 / 0 slots free)</span></h3>
+            <hr class="border-gray-700 mb-4">
+            <div id="inventoryPotionsList" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <!-- Potion buttons injected here -->
+            </div>
+        </div>
+
+        <!-- 7. Mystic Trader Modal -->
+        <div id="traderModal" class="absolute inset-0 bg-gray-900 bg-opacity-95 p-6 flex-col overflow-y-auto no-scrollbar">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-3xl font-bold text-purple-400">Mystic Trader</h2>
+                <button id="closeTraderButton" class="text-gray-400 hover:text-white text-4xl">&times;</button>
+            </div>
+            <p class="text-gray-300 mb-6">"Greetings, traveler. Care to browse my wares?"</p>
+            <div class="mb-4 text-right text-lg text-yellow-400">
+                Your Coins: <span id="traderCoinsDisplay">0</span>
+            </div>
+            <div id="traderItemsList" class="space-y-4">
+                <!-- Trader items injected here -->
+            </div>
+        </div>
+
+        <!-- 8. Item Detail Modal -->
+        <div id="itemDetailModal" class="absolute inset-0 bg-gray-800 bg-opacity-95 p-6 flex-col justify-center items-center">
+            <div class="bg-gray-900 p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+                <h3 id="itemDetailName" class="text-2xl font-bold text-white mb-4">Item Name</h3>
+                <p id="itemDetailDesc" class="text-gray-300 mb-6">Item description goes here.</p>
+                <div class="flex space-x-4">
+                    <button id="itemDetailBackButton" class="flex-1 bg-gray-700 hover:bg-gray-800 text-gray-300 font-bold py-3 px-6 rounded-lg transition duration-300">Back</button>
+                    <button id="itemDetailDropButton" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">Drop</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 9. Potion Detail Modal -->
+        <div id="potionDetailModal" class="absolute inset-0 bg-gray-800 bg-opacity-95 p-6 flex-col justify-center items-center">
+            <div class="bg-gray-900 p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+                <h3 id="potionDetailName" class="text-2xl font-bold text-green-400 mb-4">Potion Name</h3>
+                <p id="potionDetailDesc" class="text-gray-300 mb-6">Potion description goes here.</p>
+                <div class="space-y-4">
+                    <button id="potionDetailUseButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">Use</button>
+                    <div class="flex space-x-4">
+                        <button id="potionDetailBackButton" class="flex-1 bg-gray-700 hover:bg-gray-800 text-gray-300 font-bold py-3 px-6 rounded-lg transition duration-300">Back</button>
+                        <button id="potionDetailDropButton" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">Drop</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 10. Drop Confirmation Modal -->
+        <div id="dropConfirmModal" class="absolute inset-0 bg-black bg-opacity-70 p-6 flex-col justify-center items-center">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+                <h3 class="text-2xl font-bold text-yellow-400 mb-4">Drop Item?</h3>
+                <p id="dropConfirmText" class="text-gray-300 mb-6">Are you sure you want to drop this item? It will be gone forever.</p>
+                <div class="flex space-x-4">
+                    <button id="dropConfirmCancelButton" class="flex-1 bg-gray-700 hover:bg-gray-800 text-gray-300 font-bold py-3 px-6 rounded-lg transition duration-300">Cancel</button>
+                    <button id="dropConfirmYesButton" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">Yes, Drop</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 11. Error Modal -->
+        <div id="errorModal" class="absolute inset-0 bg-black bg-opacity-70 p-6 flex-col justify-center items-center">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+                <h3 class="text-2xl font-bold text-red-500 mb-4">Error</h3>
+                <p id="errorModalText" class="text-gray-300 mb-6">Not enough coins!</p>
+                <button id="errorModalCloseButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">OK</button>
+            </div>
+        </div>
+
+        <!-- 12. Game Over Modal -->
+        <div id="gameOverModal" class="absolute inset-0 bg-black bg-opacity-90 p-6 flex-col justify-center items-center text-center">
+            <h1 class="text-6xl font-bold text-red-600 mb-6">GAME OVER</h1>
+            <p class="text-xl text-gray-300 mb-10">Your journey has come to an end... for now.</p>
+            <button id="gameOverExitButton" class="w-full max-w-xs bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg transition duration-300">
+                Exit and Continue
+            </button>
+        </div>
+
+    </div> <!-- End App Container -->
+
+    <!-- NO FIREBASE NEEDED -->
+    <script type="module">
+
+        // --- GLOBAL CONFIG & STATE ---
+
+        // Local Storage Key
+        const SAVE_GAME_KEY = "adventureGameSave";
+
+        // Game state
+        let playerState = {};
+        let currentChapter = '1';
+        let currentScene = 'start';
+        let isTyping = false;
+        let typeTimer;
+        let itemToDrop = null;
+        let potionToUse = null;
+
+        // Max level cap
+        const MAX_LEVEL = 35;
+
+        // --- YOUR GAME CONTENT GOES HERE ---
+        // This is the "Story Engine" for your game.
+        // It's identical to the Firebase version.
+        // ---
+
+        const gameData = {
+            "1": {
+                "start": {
+                    "text": "Initialising save game file location protocol: ...",
+                    "onLoad": (scene) => {
+                        // Generate random build number
+                        const randomCode = `MD${Math.floor(Math.random() * 900) + 100}xx${Math.floor(Math.random() * 9)}`;
+                        scene.text = `Initialising save game file location protocol: ${randomCode}\n\nSave file located. \nLoading...`;
+                        return scene;
+                    },
+                    "choices": [
+                        { "text": "Begin...", "action": "goTo", "target": { "chapter": "1", "scene": "intro" } }
+                    ]
+                },
+                "intro": {
+                    "text": "You awaken in a dark, damp ruin. Your head aches, and you remember nothing.\nA single, rusted dagger lies at your feet.",
+                    "choices": [
+                        { "text": "Take the dagger", "action": "addItem", "item": { "id": "rusty_dagger", "name": "Rusty Dagger", "type": "item", "desc": "A pitted and dull dagger. Better than nothing." }, "target": { "chapter": "1", "scene": "path" } },
+                        { "text": "Leave it and look around", "action": "goTo", "target": { "chapter": "1", "scene": "path" } }
+                    ]
+                },
+                "path": {
+                    "text": "You see a narrow path leading out of the ruin, towards a sliver of light in the distance.",
+                    "choices": [
+                        { "text": "Follow the path", "action": "goTo", "target": { "chapter": "2", "scene": "start" } }
+                    ]
+                }
+            },
+            "2": {
+                "start": {
+                    "text": "You emerge from the ruin onto a grassy hill. A small, wooden signpost is nearby. \nThe text is faded, but you can make out two words: 'Stonebridge' and 'Swamp'.",
+                    "choices": [
+                        { "text": "Head towards Stonebridge", "action": "goTo", "target": { "chapter": "3", "scene": "start" } },
+                        { "text": "Investigate the swamp", "action": "goTo", "target": { "chapter": "2", "scene": "swamp" } }
+                    ]
+                },
+                "swamp": {
+                    "text": "You cautiously approach the edge of a murky swamp. A glint of metal catches your eye in the mud.",
+                    "choices": [
+                        { "text": "Reach for it", "action": "addItem", "item": { "id": "health_potion", "name": "Health Potion", "type": "potion", "desc": "A swirling red potion. Restores all health." }, "target": { "chapter": "2", "scene": "swamp_exit" } },
+                        { "text": "Leave it, it's not worth the risk", "action": "goTo", "target": { "chapter": "2", "scene": "swamp_exit" } }
+                    ]
+                },
+                "swamp_exit": {
+                    "text": "You decide the swamp is too dangerous and head back to the signpost, taking the path to Stonebridge.",
+                    "choices": [
+                        { "text": "Continue to Stonebridge", "action": "goTo", "target": { "chapter": "3", "scene": "start" } }
+                    ]
+                }
+            },
+            "3": {
+                "start": {
+                    "text": "The path to Stonebridge winds through a dark, quiet forest. The journey is uneventful for a few hours until you hear a rustling in the bushes.",
+                    "choices": [
+                        { "text": "Draw your dagger", "action": "conditional", "requires": { "type": "item", "id": "rusty_dagger" }, "success": { "chapter": "3", "scene": "goblin_fight" }, "fail": { "chapter": "3", "scene": "goblin_nofight" } },
+                        { "text": "Hide and wait", "action": "goTo", "target": { "chapter": "3", "scene": "goblin_hide" } },
+                        { "text": "Call out", "action": "goTo", "target": { "chapter": "3", "scene": "goblin_call" } }
+                    ]
+                },
+                "goblin_fight": {
+                    "text": "A small, green goblin leaps from the bushes, waving a club! You wave your dagger back, and the creature, seeing you're armed, hesitates.",
+                    "choices": [
+                        { "text": "Intimidate it", "action": "goTo", "target": { "chapter": "3", "scene": "goblin_flee" } },
+                        { "text": "Attack!", "action": "takeDamage", "amount": 1, "target": { "chapter": "3", "scene": "goblin_flee_injured" } }
+                    ]
+                },
+                "goblin_nofight": {
+                    "text": "A small, green goblin leaps from the bushes, waving a club! You have nothing to defend yourself with and it clubs you hard on the arm.",
+                    "choices": [
+                        { "text": "Ouch!", "action": "takeDamage", "amount": 1, "target": { "chapter": "3", "scene": "goblin_flee" } }
+                    ]
+                },
+                "goblin_hide": {
+                    "text": "You dive behind a large oak. The rustling stops. After a tense minute, you peek out to see a small goblin shuffling away down the path, grumbling to itself.",
+                    "choices": [
+                        { "text": "Continue cautiously", "action": "goTo", "target": { "chapter": "4", "scene": "start" } }
+                    ]
+                },
+                "goblin_call": {
+                    "text": "\"Who's there?\" you shout. A goblin jumps out, startles at the sight of you, and promptly trips over its own feet, knocking itself out. You find 50 coins on it.",
+                    "onLoad": (scene) => {
+                        awardCoins(50);
+                        return scene;
+                    },
+                    "choices": [
+                        { "text": "Well... that was easy", "action": "goTo", "target": { "chapter": "4", "scene": "start" } }
+                    ]
+                },
+                "goblin_flee": {
+                    "text": "The goblin screeches and runs back into the forest. You continue on your way, a little shaken.",
+                    "choices": [
+                        { "text": "Continue", "action": "goTo", "target": { "chapter": "4", "scene": "start" } }
+                    ]
+                },
+                "goblin_flee_injured": {
+                    "text": "You lunge forward, but the goblin is fast. It smacks your arm with its club before you can react, but your wild swing scares it off. It flees into the woods.",
+                    "choices": [
+                        { "text": "Continue, nursing your arm", "action": "goTo", "target": { "chapter": "4", "scene": "start" } }
+                    ]
+                }
+            },
+            "4": {
+                "start": {
+                    "text": "You finally arrive at the gates of Stonebridge. It's a small, walled town with a few guards posted at the entrance. They look bored.",
+                    "choices": [
+                        { "text": "Walk straight in", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } },
+                        { "text": "Ask the guards for news", "action": "goTo", "target": { "chapter": "4", "scene": "guards" } }
+                    ]
+                },
+                "guards": {
+                    "text": "\"Just another traveler, eh?\" one guard grunts. \"Keep your nose clean. We've had goblin trouble on the road. And stay out of the old Watchtower... it's haunted.\"",
+                    "choices": [
+                        { "text": "Thank them and enter", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                },
+                "town_square": {
+                    "text": "The town square is quiet. There's an inn, 'The Prancing Pony', and a blacksmith's forge with a sign swinging in the breeze.",
+                    "choices": [
+                        { "text": "Visit the Inn", "action": "goTo", "target": { "chapter": "5", "scene": "start" } },
+                        { "text": "Visit the Blacksmith", "action": "goTo", "target": { "chapter": "6", "scene": "start" } },
+                        { "text": "Leave town", "action": "goTo", "target": { "chapter": "7", "scene": "start" } }
+                    ]
+                }
+            },
+            "5": {
+                "start": {
+                    "text": "You enter 'The Prancing Pony'. It's warm and smells of stew. A friendly-looking innkeeper is cleaning a mug.",
+                    "choices": [
+                        { "text": "\"What's the news?\"", "action": "goTo", "target": { "chapter": "5", "scene": "news" } },
+                        { "text": "\"Can I buy some... 'information'?\" (10 Coins)", "action": "goTo", "target": { "chapter": "5", "scene": "info" } },
+                        { "text": "Leave", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                },
+                "news": {
+                    "text": "\"News? Same as ever,\" the innkeeper says. \"Goblins on the road, strange noises from the old Watchtower... If you're heading east, be careful. The path through the Darkwood is dangerous.\"",
+                    "choices": [
+                        { "text": "Ask about the Watchtower", "action": "goTo", "target": { "chapter": "5", "scene": "watchtower_info" } },
+                        { "text": "Leave", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                },
+                "info": {
+                    "text": "You slide 10 coins across the bar. The innkeeper nods. \"Smart traveler. Word is, someone stashed a 'get-out-of-jail-free' card in the old Watchtower. A Potion of Stealth, they call it.\"",
+                    "onLoad": (scene) => {
+                        if (playerState.Coins >= 10) {
+                            awardCoins(-10);
+                            return scene;
+                        } else {
+                            // Reroute if not enough coins
+                            return {
+                                ...scene,
+                                text: "You pat your pockets but come up empty. \"Another time, perhaps,\" the innkeeper says, turning away.",
+                                choices: [
+                                    { "text": "Leave", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                                ]
+                            };
+                        }
+                    },
+                    "choices": [
+                        { "text": "Interesting...", "action": "goTo", "target": { "chapter": "5", "scene": "watchtower_info" } }
+                    ]
+                },
+                "watchtower_info": {
+                    "text": "\"The old Watchtower?\" he scoffs. \"Haunted. Full of traps, they say. Not been used in 50 years. You'd be a fool to go there. Now, if you're done, I've got work to do.\"",
+                    "choices": [
+                        { "text": "Leave", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                }
+            },
+            "6": {
+                "start": {
+                    "text": "You enter the blacksmith's forge. It's hot, and the ringing of a hammer on an anvil fills the air. A burly woman looks up from her work.",
+                    "choices": [
+                        { "text": "\"Can you fix this?\"", "action": "conditional", "requires": { "type": "item", "id": "rusty_dagger" }, "success": { "chapter": "6", "scene": "upgrade_offer" }, "fail": { "chapter": "6", "scene": "no_dagger" } },
+                        { "text": "\"What do you have for sale?\"", "action": "goTo", "target": { "chapter": "6", "scene": "for_sale" } },
+                        { "text": "Leave", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                },
+                "no_dagger": {
+                    "text": "\"Fix what? You're not holding anything but lint, traveler,\" the blacksmith grunts.",
+                    "choices": [
+                        { "text": "\"What do you have for sale?\"", "action": "goTo", "target": { "chapter": "6", "scene": "for_sale" } },
+                        { "text": "Leave", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                },
+                "upgrade_offer": {
+                    "text": "You show her the Rusty Dagger. She laughs. \"This piece of junk? I could turn it into a proper Steel Dagger... for 100 coins. Interested?\"",
+                    "choices": [
+                        { "text": "Yes (100 Coins)", "action": "conditional", "requires": { "type": "coins", "amount": 100 }, "success": { "chapter": "6", "scene": "upgrade_success" }, "fail": { "chapter": "6", "scene": "upgrade_fail" } },
+                        { "text": "No, that's too much", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                },
+                "upgrade_success": {
+                    "text": "You hand over the coins. She plunges the dagger into the forge, works it on the anvil for a minute, and hands you back a sharp, gleaming Steel Dagger.",
+                    "onLoad": (scene) => {
+                        awardCoins(-100);
+                        // This action removes one item and adds another.
+                        // We must be careful not to trigger game logic here.
+                        // We'll let the choice handler do the work.
+                        return scene;
+                    },
+                    "choices": [
+                        { "text": "Thank you!", "action": "transformItem", "fromId": "rusty_dagger", "toItem": { "id": "steel_dagger", "name": "Steel Dagger", "type": "item", "desc": "A sharp, reliable dagger. Much better." }, "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                },
+                "upgrade_fail": {
+                    "text": "\"Come back when you have the coin,\" she says, turning back to her work.",
+                    "choices": [
+                        { "text": "Leave", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                },
+                "for_sale": {
+                    "text": "\"Not much right now. Goblins keep hitting the supply caravans. All I've got is this Teleport Potion a wizard left behind. Yours for 250 coins.\"",
+                    "choices": [
+                        { "text": "Buy Potion (250 Coins)", "action": "buyItem", "item": { "id": "teleport_potion", "name": "Teleport Potion", "type": "potion", "desc": "A swirling, unstable potion. Skips you to the next chapter." }, "cost": 250, "target": { "chapter": "4", "scene": "town_square" } },
+                        { "text": "Leave", "action": "goTo", "target": { "chapter": "4", "scene": "town_square" } }
+                    ]
+                }
+            },
+            "7": {
+                "start": {
+                    "text": "You leave Stonebridge. The road splits. To the north is the old, crumbling Watchtower. To the east is the path through the Darkwood.",
+                    "choices": [
+                        { "text": "Go to the Watchtower", "action": "goTo", "target": { "chapter": "7", "scene": "watchtower" } },
+                        { "text": "Go to the Darkwood", "action": "goTo", "target": { "chapter": "8", "scene": "start" } }
+                    ]
+                },
+                "watchtower": {
+                    "text": "You approach the Watchtower. It's silent, save for the wind whistling through the cracks. The front door is ajar.",
+                    "choices": [
+                        { "text": "Go inside", "action": "goTo", "target": { "chapter": "7", "scene": "wt_inside" } },
+                        { "text": "This is a bad idea, leave", "action": "goTo", "target": { "chapter": "8", "scene": "start" } }
+                    ]
+                },
+                "wt_inside": {
+                    "text": "The air is cold. You're in a single, large room. In the center is a stone pedestal. On it sits a single, corked bottle.",
+                    "choices": [
+                        { "text": "Take the bottle", "action": "addItem", "item": { "id": "stealth_potion", "name": "Stealth Potion", "type": "potion", "desc": "A potion of liquid shadow. Grants 'Stealth' status for one encounter." }, "target": { "chapter": "7", "scene": "wt_leave" } },
+                        { "text": "It's a trap. Leave.", "action": "goTo", "target": { "chapter": "7", "scene": "wt_leave" } }
+                    ]
+                },
+                "wt_leave": {
+                    "text": "You've seen enough of this creepy place. You exit the tower and head for the Darkwood.",
+                    "choices": [
+                        { "text": "Continue", "action": "goTo", "target": { "chapter": "8", "scene": "start" } }
+                    ]
+                }
+            },
+            "8": {
+                "start": {
+                    "text": "The Darkwood is aptly named. The trees are thick, and the path is hard to see. You feel like you're being watched.",
+                    "choices": [
+                        { "text": "Press on quickly", "action": "goTo", "target": { "chapter": "8", "scene": "ambush" } },
+                        { "text": "Move slowly and quietly", "action": "goTo", "target": { "chapter": "8", "scene": "sneak" } }
+                    ]
+                },
+                "sneak": {
+                    "text": "You move like a shadow, stepping carefully. You spot a goblin patrol up ahead, arguing amongst themselves. You slip past them unnoticed.",
+                    "choices": [
+                        { "text": "Continue", "action": "goTo", "target": { "chapter": "9", "scene": "start" } }
+                    ]
+                },
+                "ambush": {
+                    "text": "You hurry along the path, but your haste is your undoing. You stumble into a clearing and right into a goblin patrol!",
+                    "choices": [
+                        { "text": "Fight!", "action": "takeDamage", "amount": 2, "target": { "chapter": "8", "scene": "ambush_result" } },
+                        { "text": "Run!", "action": "takeDamage", "amount": 1, "target": { "chapter": "8", "scene": "ambush_result" } }
+                    ]
+                },
+                "ambush_result": {
+                    "text": "You fight/run your way out, but not before taking a nasty cut. You escape into the deep woods, finally leaving the goblins behind.",
+                    "choices": [
+                        { "text": "Keep moving", "action": "goTo", "target": { "chapter": "9", "scene": "start" } }
+                    ]
+                }
+            },
+            "9": {
+                "start": {
+                    "text": "You emerge from the Darkwood at the foot of a towering mountain range. The air is thin and cold. A narrow, steep path climbs up into the peaks. This must be the 'Spine of the World' the innkeeper mentioned.",
+                    "choices": [
+                        { "text": "Begin the climb", "action": "goTo", "target": { "chapter": "9", "scene": "climb" } },
+                        { "text": "Look for a cave to rest", "action": "goTo", "target": { "chapter": "9", "scene": "cave" } }
+                    ]
+                },
+                "climb": {
+                    "text": "You begin the arduous climb. The path is treacherous. After an hour, you slip on loose gravel and tumble, badly twisting your ankle.",
+                    "choices": [
+                        { "text": "This... is bad", "action": "takeDamage", "amount": 1, "target": { "chapter": "9", "scene": "climb_continue" } }
+                    ]
+                },
+                "climb_continue": {
+                    "text": "Gritting your teeth, you limp onward. The path eventually levels out near a large, dark cave emitting a faint warmth.",
+                    "choices": [
+                        { "text": "Enter the cave", "action": "goTo", "target": { "chapter": "10", "scene": "start" } }
+                    ]
+                },
+                "cave": {
+                    "text": "You find a small, shallow cave. It's not much, but it's out of the wind. You rest for an hour, regaining your strength. You also find a discarded Health Potion.",
+                    "choices": [
+                        { "text": "Take the potion and climb", "action": "addItem", "item": { "id": "health_potion", "name": "Health Potion", "type": "potion", "desc": "A swirling red potion. Restores all health." }, "target": { "chapter": "10", "scene": "start" } }
+                    ]
+                }
+            },
+            "10": {
+                "start": {
+                    "text": "The cave is large and surprisingly warm. A faint orange glow emanates from deep within. As you move closer, you see it's an Orc camp, gathered around a large fire.",
+                    "choices": [
+                        { "text": "Sneak past them", "action": "goTo", "target": { "chapter": "10", "scene": "sneak" } },
+                        { "text": "Charge in!", "action": "goTo", "target": { "chapter": "10", "scene": "charge" } },
+                        { "text": "Try to find another way around", "action": "goTo", "target": { "chapter": "10", "scene": "around" } }
+                    ]
+                },
+                "charge": {
+                    "text": "You scream and run into the camp. The four Orcs look at you, stunned, then laugh and draw their weapons. This was a terrible idea.",
+                    "choices": [
+                        { "text": "I regret everything", "action": "takeDamage", "amount": 3, "target": { "chapter": "10", "scene": "captured" } }
+                    ]
+                },
+                "around": {
+                    "text": "You backtrack and find a small, tight crevice. You squeeze through, scraping your gear, but you manage to bypass the camp. You find a passage leading up.",
+                    "choices": [
+                        { "text": "Continue up", "action": "goTo", "target": { "chapter": "11", "scene": "start" } }
+                    ]
+                },
+                "sneak": {
+                    "text": "You stick to the shadows, moving slowly. You're almost past when you kick a loose stone. An Orc looks up. \"WHO'S THERE?\"",
+                    "choices": [
+                        { "text": "Freeze", "action": "goTo", "target": { "chapter": "10", "scene": "sneak_success" } },
+                        { "text": "Run!", "action": "takeDamage", "amount": 1, "target": { "chapter": "10", "scene": "sneak_fail" } }
+                    ]
+                },
+                "sneak_success": {
+                    "text": "You stand perfectly still. The Orc squints into the darkness, grunts, and returns to his drink. You let out a breath and slip away into a passage leading up.",
+                    "choices": [
+                        { "text": "Continue up", "action": "goTo", "target": { "chapter": "11", "scene": "start" } }
+                    ]
+                },
+                "sneak_fail": {
+                    "text": "You bolt. The Orcs roar and give chase, throwing axes. One clips your shoulder, but you manage to escape into a passage leading up.",
+                    "choices": [
+                        { "text": "Continue up", "action": "goTo", "target": { "chapter": "11", "scene": "start" } }
+                    ]
+                },
+                "captured": {
+                    "text": "You wake up in a crude cell. Your head is ringing. An Orc guard opens the door. \"The boss wants to see you.\" But as he enters, he slips on the damp floor, hits his head, and drops his keys.",
+                    "choices": [
+                        { "text": "Grab the keys and his cleaver", "action": "addItem", "item": { "id": "orc_cleaver", "name": "Orcish Cleaver", "type": "item", "desc": "A heavy, brutal, and surprisingly sharp blade." }, "target": { "chapter": "10", "scene": "escape" } },
+                        { "text": "Just grab the keys and run", "action": "goTo", "target": { "chapter": "10", "scene": "escape" } }
+                    ]
+                },
+                "escape": {
+                    "text": "You unlock the cell and run. You find a storage room. Inside is a dusty suit of Iron Armor and a Mana Potion. You grab them and find a passage up.",
+                    "onLoad": (scene) => {
+                        // This will trigger the max health upgrade!
+                        showNotification("Max Health Increased to 5!");
+                        return scene;
+                    },
+                    "choices": [
+                        { "text": "Take everything and go", "action": "addMultipleItems", "items": [
+                            { "id": "iron_armor", "name": "Iron Armor", "type": "item", "desc": "Sturdy iron plate. Permanently increases max health to 5." },
+                            { "id": "mana_potion", "name": "Mana Potion", "type": "potion", "desc": "A swirling blue potion. Grants one level instantly." }
+                        ], "target": { "chapter": "11", "scene": "start" } }
+                    ]
+                }
+            },
+            "11": {
+                "start": {
+                    "text": "The passage opens out onto the mountainside, high above the clouds. The view is breathtaking. The path continues, winding around a sheer cliff face.",
+                    "choices": [
+                        { "text": "Proceed carefully", "action": "goTo", "target": { "chapter": "11", "scene": "cliff" } }
+                    ]
+                },
+                "cliff": {
+                    "text": "As you round a bend, a huge shadow passes overhead. A Griffon lands on the path, blocking your way. It screeches, flapping its massive wings.",
+                    "choices": [
+                        { "text": "Try to scare it", "action": "goTo", "target": { "chapter": "11", "scene": "griffon_scare" } },
+                        { "text": "Toss it some food (if you had any)", "action": "goTo", "target": { "chapter": "11", "scene": "griffon_food" } },
+                        { "text": "Wait for it to leave", "action": "goTo", "target": { "chapter": "11", "scene": "griffon_wait" } }
+                    ]
+                },
+                "griffon_scare": {
+                    "text": "You yell and wave your arms. The Griffon is not impressed. It rakes you with its talons as it flies past, leaving a deep gash.",
+                    "choices": [
+                        { "text": "Ouch...!", "action": "takeDamage", "amount": 2, "target": { "chapter": "12", "scene": "start" } }
+                    ]
+                },
+                "griffon_food": {
+                    "text": "You have no food. The Griffon seems to realize this and eyes you hungrily. You back away slowly... right off the path.",
+                    "choices": [
+                        { "text": "Aaaaaaah!", "action": "takeDamage", "amount": 1, "target": { "chapter": "11", "scene": "fall" } }
+                    ]
+                },
+                "fall": {
+                    "text": "You fall 10 feet onto a ledge below. You're battered, but alive. You find a small opening in the rock.",
+                    "choices": [
+                        { "text": "Enter the opening", "action": "goTo", "target": { "chapter": "12", "scene": "start" } }
+                    ]
+                },
+                "griffon_wait": {
+                    "text": "You wait for what feels like an hour. The Griffon, bored, eventually launches into the air and soars away. You continue on the path.",
+                    "choices": [
+                        { "text": "Continue", "action": "goTo", "target": { "chapter": "12", "scene": "start" } }
+                    ]
+                }
+            },
+            "12": {
+                "start": {
+                    "text": "You are in a tunnel. It slopes downwards, deep into the mountain. You've entered an ancient Dwarven hold. It's eerily quiet.",
+                    "choices": [
+                        { "text": "Explore the Great Hall", "action": "goTo", "target": { "chapter": "12", "scene": "hall" } },
+                        { "text": "Check the side chambers", "action": "goTo", "target": { "chapter": "12", "scene": "chambers" } }
+                    ]
+                },
+                "hall": {
+                    "text": "The Great Hall is vast, but picked clean. Nothing remains but dust and echoes.",
+                    "choices": [
+                        { "text": "Check the side chambers", "action": "goTo", "target": { "chapter": "12", "scene": "chambers" } }
+                    ]
+                },
+                "chambers": {
+                    "text": "You search a few smaller rooms. In one, you find a skeleton clutching a chest. You open it and find 200 Coins!",
+                    "onLoad": (scene) => {
+                        awardCoins(200);
+                        return scene;
+                    },
+                    "choices": [
+                        { "text": "Take the coins and find the exit", "action": "goTo", "target": { "chapter": "13", "scene": "start" } }
+                    ]
+                }
+            },
+            "13": {
+                "start": {
+                    "text": "You exit the Dwarven hold onto the other side of the mountain. You've made it! The land below is a green, rolling valley. A river flows through it, crossed by a sturdy-looking bridge.",
+                    "choices": [
+                        { "text": "Head for the bridge", "action": "goTo", "target": { "chapter": "13", "scene": "bridge" } }
+                    ]
+                },
+                "bridge": {
+                    "text": "You reach the bridge. A lone Elven archer stands guard. \"Hold, traveler. None may pass without answering my riddle.\"",
+                    "choices": [
+                        { "text": "\"I'm not in the mood for riddles.\"", "action": "goTo", "target": { "chapter": "13", "scene": "no_riddle" } },
+                        { "text": "\"Ask your riddle.\"", "action": "goTo", "target": { "chapter": "13", "scene": "riddle" } }
+                    ]
+                },
+                "no_riddle": {
+                    "text": "The elf nocks an arrow. \"Then you shall not pass.\" You are forced to swim the river, which is cold and fast. You lose 50 coins in the crossing.",
+                    "onLoad": (scene) => {
+                        awardCoins(-50);
+                        return scene;
+                    },
+                    "choices": [
+                        { "text": "Continue, wet and poorer", "action": "goTo", "target": { "chapter": "14", "scene": "start" } }
+                    ]
+                },
+                "riddle": {
+                    "text": "\"I have cities, but no houses. I have mountains, but no trees. I have water, but no fish. What am I?\"",
+                    "choices": [
+                        { "text": "A map", "action": "goTo", "target": { "chapter": "13", "scene": "riddle_success" } },
+                        { "text": "A dream", "action": "goTo", "target": { "chapter": "13", "scene": "riddle_fail" } },
+                        { "text": "A painting", "action": "goTo", "target": { "chapter": "13", "scene": "riddle_fail" } }
+                    ]
+                },
+                "riddle_success": {
+                    "text": "The elf smiles. \"Correct. You are wise.\" She steps aside. \"As a reward, take this.\" She hands you a beautifully crafted Elven Bow.",
+                    "choices": [
+                        { "text": "Take the bow and cross", "action": "addItem", "item": { "id": "elven_bow", "name": "Elven Bow", "type": "item", "desc": "A masterfully crafted bow. Lightweight and powerful." }, "target": { "chapter": "14", "scene": "start" } }
+                    ]
+                },
+                "riddle_fail": {
+                    "text": "The elf shakes her head. \"Incorrect.\" She points. \"You must swim.\"",
+                    "choices": [
+                        { "text": "Swim the river", "action": "goTo", "target": { "chapter": "13", "scene": "no_riddle" } }
+                    ]
+                }
+            },
+            "14": {
+                "start": {
+                    "text": "You are traveling through the valley when you come across a heavily guarded checkpoint. Mercenaries block the road.",
+                    "choices": [
+                        { "text": "Pay the 'toll' (150 Coins)", "action": "conditional", "requires": { "type": "coins", "amount": 150 }, "success": { "chapter": "14", "scene": "pay_toll" }, "fail": { "chapter": "14", "scene": "no_money" } },
+                        { "text": "Try to sneak past at night", "action": "conditional", "requires": { "type": "status", "id": "stealth" }, "success": { "chapter": "14", "scene": "sneak_success" }, "fail": { "chapter": "14", "scene": "sneak_fail" } },
+                        { "text": "Try to fight them", "action": "goTo", "target": { "chapter": "14", "scene": "fight" } }
+                    ]
+                },
+                "pay_toll": {
+                    "text": "You reluctantly hand over 150 coins. The guards laugh and wave you through.",
+                    "onLoad": (scene) => {
+                        awardCoins(-150);
+                        return scene;
+                    },
+                    "choices": [
+                        { "text": "Continue", "action": "goTo", "target": { "chapter": "15", "scene": "start" } }
+                    ]
+                },
+                "no_money": {
+                    "text": "You don't have enough coins. \"No coin, no passage,\" the guard snarls.",
+                    "choices": [
+                        { "text": "Try to sneak", "action": "conditional", "requires": { "type": "status", "id": "stealth" }, "success": { "chapter": "14", "scene": "sneak_success" }, "fail": { "chapter": "14", "scene": "sneak_fail" } },
+                        { "text": "Try to fight", "action": "goTo", "target": { "chapter": "14", "scene": "fight" } }
+                    ]
+                },
+                "sneak_success": {
+                    "text": "You used your Stealth! You slip past the camp in the dead of night, silent as a shadow. You also manage to snag a Health Potion from their supply tent.",
+                    "choices": [
+                        { "text": "Take potion and go", "action": "addItem", "item": { "id": "health_potion", "name": "Health Potion", "type": "potion", "desc": "A swirling red potion. Restores all health." }, "target": { "chapter": "15", "scene": "start" } }
+                    ]
+                },
+                "sneak_fail": {
+                    "text": "You try to sneak, but you snap a twig. \"Intruder!\" You're forced to fight your way out, taking a bad hit.",
+                    "choices": [
+                        { "text": "Run for it!", "action": "takeDamage", "amount": 2, "target": { "chapter": "15", "scene": "start" } }
+                    ]
+                },
+                "fight": {
+                    "text": "You draw your weapon. It's 5 against 1. You don't stand a chance. They beat you, take all your coins, and leave you in a ditch.",
+                    "onLoad": (scene) => {
+                        awardCoins(-playerState.Coins); // Take all coins
+                        return scene;
+                    },
+                    "choices": [
+                        { "text": "That... was a mistake", "action": "takeDamage", "amount": 2, "target": { "chapter": "15", "scene": "start" } }
+                    ]
+                }
+            },
+            "15": {
+                "start": {
+                    "text": "You finally limp into the large port city of 'Meridia'. The smell of salt and fish is overwhelming. The city is a maze of streets.",
+                    "choices": [
+                        { "text": "Go to the Docks", "action": "goTo", "target": { "chapter": "16", "scene": "start" } },
+                        { "text": "Go to the Market", "action": "goTo", "target": { "chapter": "17", "scene": "start" } },
+                        { "text": "Go to the 'Sleeping Serpent' Inn", "action": "goTo", "target": { "chapter": "18", "scene": "start" } }
+                    ]
+                }
+            },
+            "16": {
+                "start": {
+                    "text": "The docks are bustling. A ship captain is shouting, looking for sailors. \"Need one more hand for a trip to the 'Isles of Mist'! Danger pay!\"",
+                    "choices": [
+                        { "text": "Sign on", "action": "goTo", "target": { "chapter": "19", "scene": "start" } },
+                        { "text": "Ask about the 'Isles of Mist'", "action": "goTo", "target": { "chapter": "16", "scene": "info" } },
+                        { "text": "Keep looking", "action": "goTo", "target": { "chapter": "15", "scene": "start" } }
+                    ]
+                },
+                "info": {
+                    "text": "\"Cursed, they say!\" a nearby sailor whispers. \"Full of ruins, treasure... and ghosts. The last ship that went... well, it didn't come back.\"",
+                    "choices": [
+                        { "text": "Sign on anyway", "action": "goTo", "target": { "chapter": "19", "scene": "start" } },
+                        { "text": "Maybe not...", "action": "goTo", "target": { "chapter": "15", "scene": "start" } }
+                    ]
+                }
+            },
+            "17": {
+                "start": {
+                    "text": "The market is a riot of color and noise. You find a stall run by a shady-looking merchant. He's selling a 'genuine' Mana Potion and a Teleport Potion.",
+                    "choices": [
+                        { "text": "Buy Mana Potion (150 Coins)", "action": "buyItem", "item": { "id": "mana_potion", "name": "Mana Potion", "type": "potion", "desc": "A swirling blue potion. Grants one level instantly." }, "cost": 150, "target": { "chapter": "17", "scene": "start" } },
+                        { "text": "Buy Teleport Potion (150 Coins)", "action": "buyItem", "item": { "id": "teleport_potion", "name": "Teleport Potion", "type": "potion", "desc": "A swirling, unstable potion. Skips you to the next chapter." }, "cost": 150, "target": { "chapter": "17", "scene": "start" } },
+                        { "text": "Leave", "action": "goTo", "target": { "chapter": "15", "scene": "start" } }
+                    ]
+                }
+            },
+            "18": {
+                "start": {
+                    "text": "You enter the 'Sleeping Serpent'. It's dark and filled with smoke. In the corner, a cloaked figure motions you over.",
+                    "choices": [
+                        { "text": "Approach the figure", "action": "goTo", "target": { "chapter": "18", "scene": "figure" } },
+                        { "text": "Ignore them and go to the bar", "action": "goTo", "target": { "chapter": "18", "scene": "bar" } },
+                        { "text": "Leave. This place is bad news.", "action": "goTo", "target": { "chapter": "15", "scene": "start" } }
+                    ]
+                },
+                "bar": {
+                    "text": "You grab a drink. Nothing happens. The world is full of disappointment.",
+                    "choices": [
+                        { "text": "Leave", "action": "goTo", "target": { "chapter": "15", "scene": "start" } }
+                    ]
+                },
+                "figure": {
+                    "text": "You sit down. The figure leans in. \"I know what you are,\" a woman whispers. \"You are a key. And the lock is on the 'Isles of Mist'. But you are not ready. Take this.\"",
+                    "choices": [
+                        { "text": "Take the 'Key Shard'", "action": "addItem", "item": { "id": "key_shard", "name": "Key Shard", "type": "item", "desc": "A strange, humming piece of metal. It feels important." }, "target": { "chapter": "18", "scene": "figure_leave" } }
+                    ]
+                },
+                "figure_leave": {
+                    "text": "Before you can ask what she means, she's gone, vanished into the smoke. You are left with the shard and many questions.",
+                    "choices": [
+                        { "text": "Go to the Docks", "action": "goTo", "target": { "chapter": "16", "scene": "start" } }
+                    ]
+                }
+            },
+            "19": {
+                "start": {
+                    "text": "You've joined the crew of 'TheSaltyKraken'. The ship sets sail on a stormy sea. The voyage is brutal. You work the ropes, scrub the deck, and avoid the angry first mate.",
+                    "choices": [
+                        { "text": "This is harder than adventuring", "action": "goTo", "target": { "chapter": "19", "scene": "storm" } }
+                    ]
+                },
+                "storm": {
+                    "text": "A massive storm hits. A wave washes over the deck, and you're knocked hard against the mast. The world goes black.",
+                    "choices": [
+                        { "text": "...", "action": "takeDamage", "amount": 1, "target": { "chapter": "20", "scene": "start" } }
+                    ]
+                }
+            },
+            "20": {
+                "start": {
+                    "text": "You awaken on a beach of black sand. You are shipwrecked. The 'Isles of Mist'... you've arrived. The jungle ahead is silent and ominous. A massive, ruined temple is visible through the trees.",
+                    "choices": [
+                        { "text": "Search for other survivors", "action": "goTo", "target": { "chapter": "20", "scene": "survivors" } },
+                        { "text": "Head straight for the temple", "action": "goTo", "target": { "chapter": "21", "scene": "start" } },
+                        { "text": "Scavenge the wreckage", "action": "goTo", "target": { "chapter": "20", "scene": "wreckage" } }
+                    ]
+                },
+                "survivors": {
+                    "text": "You shout, but only the waves answer. You are alone.",
+                    "choices": [
+                        { "text": "Head for the temple", "action": "goTo", "target": { "chapter": "21", "scene": "start" } }
+                    ]
+                },
+                "wreckage": {
+                    "text": "You pick through the debris. You find a waterlogged crate containing a Health Potion and a Mana Potion.",
+                    "choices": [
+                        { "text": "Take them and go to the temple", "action": "addMultipleItems", "items": [
+                             { "id": "health_potion", "name": "Health Potion", "type": "potion", "desc": "A swirling red potion. Restores all health." },
+                             { "id": "mana_potion", "name": "Mana Potion", "type": "potion", "desc": "A swirling blue potion. Grants one level instantly." }
+                        ], "target": { "chapter": "21", "scene": "start" } }
+                    ]
+                }
+            },
+            // --- CHAPTERS 21-25 - PLACEHOLDERS ---
+            "21": {
+                "start": {
+                    "text": "PLACEHOLDER: Chapter 21 Start. The jungle path to the temple.",
+                    "choices": [
+                        { "text": "Next", "action": "goTo", "target": { "chapter": "22", "scene": "start" } }
+                    ]
+                }
+            },
+            "22": {
+                "start": {
+                    "text": "PLACEHOLDER: Chapter 22 Start. Inside the temple.",
+                    "choices": [
+                        { "text": "Next", "action": "goTo", "target": { "chapter": "23", "scene": "start" } }
+                    ]
+                }
+            },
+            "23": {
+                "start": {
+                    "text": "PLACEHOLDER: Chapter 23 Start. The inner sanctum.",
+                    "choices": [
+                        { "text": "Next", "action": "goTo", "target": { "chapter": "24", "scene": "start" } }
+                    ]
+                }
+            },
+            "24": {
+                "start": {
+                    "text": "PLACEHOLDER: Chapter 24 Start. The final challenge.",
+                    "choices": [
+                        { "text": "Next", "action": "goTo", "target": { "chapter": "25", "scene": "start" } }
+                    ]
+                }
+            },
+            "25": {
+                "start": {
+                    "text": "PLACEHOLDER: Chapter 25 Start. The ending.",
+                    "choices": [
+                        { "text": "Restart? (Temp)", "action": "goTo", "target": { "chapter": "1", "scene": "start" } }
+                    ]
+                }
+            }
+        };
+
+        // --- TRADER DATA ---
+        const traderInventory = [
+            { id: "health_potion", name: "Health Potion", type: "potion", desc: "A swirling red potion. Restores all health.", cost: 50 },
+            { id: "mana_potion", name: "Mana Potion", type: "potion", desc: "A swirling blue potion. Grants one level instantly.", cost: 150 },
+            { id: "teleport_potion", name: "Teleport Potion", type: "potion", desc: "A swirling, unstable potion. Skips you to the next chapter.", cost: 250 },
+            { id: "stealth_potion", name: "Stealth Potion", type: "potion", desc: "A potion of liquid shadow. Grants 'Stealth' status for one encounter.", cost: 100 },
+        ];
+
+
+        // --- UI ELEMENT SELECTORS ---
+        const screens = {
+            start: document.getElementById('startScreen'),
+            continue: document.getElementById('continueScreen'),
+            newGameConfirm: document.getElementById('newGameConfirmScreen'),
+            username: document.getElementById('usernameScreen'),
+            game: document.getElementById('gameScreen')
+        };
+        const modals = {
+            inventory: document.getElementById('inventoryModal'),
+            trader: document.getElementById('traderModal'),
+            itemDetail: document.getElementById('itemDetailModal'),
+            potionDetail: document.getElementById('potionDetailModal'),
+            dropConfirm: document.getElementById('dropConfirmModal'),
+            error: document.getElementById('errorModal'),
+            gameOver: document.getElementById('gameOverModal')
+        };
+        const displays = {
+            saveData: document.getElementById('saveDataSummary'),
+            saveDataDelete: document.getElementById('saveDataSummaryDelete'),
+            username: document.getElementById('usernameDisplay'),
+            chapter: document.getElementById('chapterDisplay'),
+            level: document.getElementById('levelDisplay'),
+            coins: document.getElementById('coinsDisplay'),
+            gameText: document.getElementById('gameText'),
+            choiceButtons: document.getElementById('choiceButtons'),
+            inventoryItems: document.getElementById('inventoryItemsList'),
+            inventoryPotions: document.getElementById('inventoryPotionsList'),
+            itemSlots: document.getElementById('itemSlotDisplay'),
+            potionSlots: document.getElementById('potionSlotDisplay'),
+            traderCoins: document.getElementById('traderCoinsDisplay'),
+            traderItems: document.getElementById('traderItemsList'),
+            itemDetailName: document.getElementById('itemDetailName'),
+            itemDetailDesc: document.getElementById('itemDetailDesc'),
+            potionDetailName: document.getElementById('potionDetailName'),
+            potionDetailDesc: document.getElementById('potionDetailDesc'),
+            dropConfirmText: document.getElementById('dropConfirmText'),
+            errorModalText: document.getElementById('errorModalText'),
+            notification: document.getElementById('notificationArea'),
+            healthBar: document.getElementById('healthBar')
+        };
+        const inputs = {
+            username: document.getElementById('usernameInput')
+        };
+        const buttons = {
+            enter: document.getElementById('enterButton'),
+            exit: document.getElementById('exitButton'),
+            continueGame: document.getElementById('continueGameButton'),
+            newGame: document.getElementById('newGameButton'),
+            confirmDelete: document.getElementById('confirmDeleteButton'),
+            cancelDelete: document.getElementById('cancelDeleteButton'),
+            startGame: document.getElementById('startGameButton'),
+            inventory: document.getElementById('inventoryButton'),
+            exitGame: document.getElementById('exitGameButton'),
+            closeInventory: document.getElementById('closeInventoryButton'),
+            closeTrader: document.getElementById('closeTraderButton'),
+            itemDetailBack: document.getElementById('itemDetailBackButton'),
+            itemDetailDrop: document.getElementById('itemDetailDropButton'),
+            potionDetailBack: document.getElementById('potionDetailBackButton'),
+            potionDetailDrop: document.getElementById('potionDetailDropButton'),
+            potionDetailUse: document.getElementById('potionDetailUseButton'),
+            dropConfirmCancel: document.getElementById('dropConfirmCancelButton'),
+            dropConfirmYes: document.getElementById('dropConfirmYesButton'),
+            errorModalClose: document.getElementById('errorModalCloseButton'),
+            gameOverExit: document.getElementById('gameOverExitButton')
+        };
+
+        // --- HELPER FUNCTIONS ---
+
+        /**
+         * Switches the visible screen.
+         * @param {string} screenName - The name of the screen to show (e.g., 'start', 'game').
+         */
+        function showScreen(screenName) {
+            Object.values(screens).forEach(screen => {
+                if (screen.id !== `screen_${screenName}`) { // Keep game screen if it's the target
+                    screen.style.display = 'none';
+                }
+            });
+            if (screens[screenName]) {
+                screens[screenName].style.display = 'flex'; // Use flex for centering
+                // Special case for game screen, which has a different layout
+                if (screenName === 'game') {
+                    screens.game.style.display = 'flex';
+                } else {
+                    screens[screenName].style.display = 'flex';
+                }
+            }
+        }
+
+        /**
+         * Shows a modal by ID.
+         * @param {string} modalName - The name of the modal (e.g., 'inventory').
+         */
+        function showModal(modalName) {
+            if (modals[modalName]) {
+                modals[modalName].style.display = 'flex';
+            }
+        }
+
+        /**
+         * Hides a modal by ID.
+         * @param {string} modalName - The name of the modal.
+         */
+        function hideModal(modalName) {
+            if (modals[modalName]) {
+                modals[modalName].style.display = 'none';
+            }
+        }
+
+        /**
+         * Shows an error message in the error modal.
+         * @param {string} message - The error message to display.
+         */
+        function showError(message) {
+            displays.errorModalText.textContent = message;
+            showModal('error');
+        }
+
+        /**
+         * Shows a temporary notification (e.g., "Gained 50 Coins!").
+         * @param {string} message - The message to display.
+         * @param {string} [type='success'] - 'success' (green) or 'error' (red).
+         */
+        function showNotification(message, type = 'success') {
+            const el = displays.notification;
+            el.textContent = message;
+            el.classList.remove('bg-green-500', 'bg-red-500', 'opacity-0');
+
+            if (type === 'success') {
+                el.classList.add('bg-green-500');
+            } else {
+                el.classList.add('bg-red-500');
+            }
+
+            el.classList.add('opacity-100');
+
+            setTimeout(() => {
+                el.classList.remove('opacity-100');
+                el.classList.add('opacity-0');
+            }, 2000); // Notification lasts 2 seconds
+        }
+
+        /**
+         * Displays text with a typewriter effect.
+         * @param {string} text - The text to animate.
+         * @param {function} onComplete - Callback function when typing finishes.
+         */
+        function typeWriter(text, onComplete) {
+            isTyping = true;
+            clearTimeout(typeTimer);
+
+            const el = displays.gameText;
+            el.textContent = "";
+            const words = text.split('');
+            let i = 0;
+
+            const wrapper = document.getElementById('gameTextWrapper');
+            wrapper.scrollTop = wrapper.scrollHeight; // Scroll to bottom
+
+            function type() {
+                if (i < words.length) {
+                    el.textContent += words[i];
+                    i++;
+                    typeTimer = setTimeout(type, 20); // Adjust typing speed here (50ms)
+                    wrapper.scrollTop = wrapper.scrollHeight; // Keep scrolled to bottom
+                } else {
+                    isTyping = false;
+                    if (onComplete) {
+                        onComplete();
+                    }
+                }
+            }
+
+            type();
+        }
+
+        /**
+         * Skips the typewriter animation.
+         */
+        function skipTypewriter() {
+            if (isTyping) {
+                isTyping = false;
+                clearTimeout(typeTimer);
+                const scene = gameData[currentChapter][currentScene];
+                displays.gameText.textContent = scene.text;
+                renderChoices(scene); // Show choices immediately
+            }
+        }
+
+
+        // --- LOCAL STORAGE & DATA FUNCTIONS ---
+
+        /**
+         * Loads the save game from localStorage.
+         * @returns {object | null} The playerState object or null if not found.
+         */
+        function loadSaveGame() {
+            try {
+                const savedData = localStorage.getItem(SAVE_GAME_KEY);
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    console.log("Save data loaded:", data);
+                    // Run migration check on load
+                    return migrateSaveData(data);
+                }
+            } catch (e) {
+                console.error("Error loading save game: ", e);
+                return null;
+            }
+            return null;
+        }
+
+        /**
+         * Creates a new, blank player state object.
+         * @param {string} username - The player's chosen name.
+         * @returns {object} A new playerState object.
+         */
+        function createNewSave(username) {
+            return {
+                Username: username,
+                Level: 1,
+                Chapter: "1",
+                Scene: "start",
+                Coins: 0,
+                Items: [], // New array-based inventory
+                Potions: [], // New array-based inventory
+                MaxItems: 5, // Starting item slots
+                MaxPotions: 3, // Starting potion slots
+                Health: 3, // Starting health
+                MaxHealth: 3, // Starting max health
+                XP: 0,
+                XPToNextLevel: 10,
+                Status: {} // For 'stealth', etc.
+            };
+        }
+
+        /**
+         * Saves the current playerState to localStorage.
+         */
+        function saveGame() {
+            try {
+                localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(playerState));
+                console.log("Game saved!");
+            } catch (e) {
+                console.error("Error saving game: ", e);
+            }
+        }
+
+        /**
+         * Deletes the user's save game from localStorage.
+         */
+        function deleteSave() {
+            try {
+                localStorage.removeItem(SAVE_GAME_KEY);
+                console.log("Save game deleted!");
+            } catch (e) {
+                console.error("Error deleting save game: ", e);
+            }
+        }
+
+        /**
+         * Formats and displays the save data summary.
+         * @param {object} data - The playerState object.
+         * @param {Element} element - The UI element to populate.
+         */
+        function displaySaveSummary(data, element) {
+            element.innerHTML = `
+                <p class="text-gray-300"><strong class="text-white">Player:</strong> ${data.Username}</p>
+                <p class="text-gray-300"><strong class="text-white">Level:</strong> ${data.Level}</p>
+                <p class="text-gray-300"><strong class="text-white">Chapter:</strong> ${data.Chapter}</p>
+                <p class="text-gray-300"><strong class="text-white">Coins:</strong> ${data.Coins}</p>
+            `;
+        }
+
+        /**
+         * Migrates an old save file (with Item1, Item2...) to the new array-based format.
+         * @param {object} oldData - The old save data.
+         * @returns {object} The new, migrated playerState object.
+         */
+        function migrateSaveData(oldData) {
+            // Check if migration is even needed (if Items is already an array)
+            if (Array.isArray(oldData.Items)) {
+                console.log("Save data is already new. No migration needed.");
+                // Ensure new fields from latest updates exist
+                const migrated = { ...createNewSave("temp"), ...oldData };
+                if (!migrated.Status) migrated.Status = {};
+                if (typeof migrated.Health === 'undefined') migrated.Health = 3;
+                if (typeof migrated.MaxHealth === 'undefined') migrated.MaxHealth = 3;
+                // Fix for armor bug
+                if (migrated.Items.find(item => item.id === 'iron_armor') && migrated.MaxHealth < 5) {
+                    migrated.MaxHealth = 5;
+                    if (migrated.Health < migrated.MaxHealth) {
+                        migrated.Health = migrated.MaxHealth;
+                    }
+                }
+                return migrated;
+            }
+
+            console.log("Migrating old save data...");
+            let newSave = createNewSave(oldData.Username || "Adventurer");
+            newSave.Level = oldData.Level || 1;
+            newSave.Chapter = oldData.Chapter || "1";
+            newSave.Coins = oldData.Coins || 0;
+
+            // Migrate items
+            for (let i = 1; i <= (newSave.MaxItems); i++) {
+                if (oldData[`Item${i}`] && oldData[`Item${i}`] !== `Item ${i}`) {
+                    // This is a simple fallback.
+                    if (oldData[`Item${i}`] === "Rusty Dagger") {
+                         newSave.Items.push({ id: "rusty_dagger", name: "Rusty Dagger", type: "item", desc: "A pitted and dull dagger. Better than nothing." });
+                    }
+                }
+            }
+
+            // Migrate potions
+            for (let i = 1; i <= (newSave.MaxPotions); i++) {
+                if (oldData[`Potion${i}`]) {
+                    if (oldData[`Potion${i}`] === "Health Potion") {
+                        newSave.Potions.push({ id: "health_potion", name: "Health Potion", type: "potion", desc: "A swirling red potion. Restores all health." });
+                    }
+                    if (oldData[`Potion${i}`] === "Mana Potion") {
+                        newSave.Potions.push({ id: "mana_potion", name: "Mana Potion", type: "potion", desc: "A swirling blue potion. Grants one level instantly." });
+                    }
+                }
+            }
+
+            console.log("Migration complete:", newSave);
+            return newSave;
+        }
+
+        // --- GAME LOGIC FUNCTIONS ---
+
+        /**
+         * Initializes and starts the game.
+         * @param {object} saveData - The playerState object.
+         */
+        function initGame(saveData) {
+            playerState = saveData;
+            currentChapter = playerState.Chapter;
+            currentScene = playerState.Scene || 'start'; // Fallback to 'start'
+
+            updateUI();
+            showScreen('game');
+            loadScene(currentChapter, currentScene);
+        }
+
+        /**
+         * Loads a specific scene by chapter and scene ID.
+         * @param {string} chapter - The chapter ID.
+         * @param {string} scene - The scene ID.
+         */
+        function loadScene(chapter, scene) {
+            // Clear 'stealth' status after one use
+            if (playerState.Status.stealth) {
+                playerState.Status.stealth = false;
+                showNotification("Stealth effect has worn off.", "error");
+            }
+
+            currentChapter = chapter;
+            currentScene = scene;
+
+            let sceneData = gameData[chapter]?.[scene];
+            if (!sceneData) {
+                console.error(`Scene not found: ${chapter}:${scene}`);
+                sceneData = { text: "Error: Scene not found.", choices: [] };
+            }
+
+            // --- Scene `onLoad` hook ---
+            // This allows scenes to run logic (like awarding coins)
+            // *before* the text is displayed.
+            if (typeof sceneData.onLoad === 'function') {
+                sceneData = sceneData.onLoad(sceneData);
+            }
+            // ---
+
+            displays.choiceButtons.innerHTML = ""; // Hide choices until text finishes
+
+            // Handle typewriter
+            displays.gameText.textContent = "";
+            skipTypewriter(); // Clear any previous animation
+            typeWriter(sceneData.text, () => {
+                // This runs *after* typing is complete
+                renderChoices(sceneData);
+            });
+
+            // Update player state
+            playerState.Chapter = chapter;
+            playerState.Scene = scene;
+
+            // Save progress
+            saveGame();
+            updateUI();
+        }
+
+        /**
+         * Renders the choice buttons for the current scene.
+         * @param {object} sceneData - The data for the current scene.
+         */
+        function renderChoices(sceneData) {
+            displays.choiceButtons.innerHTML = "";
+            if (!sceneData.choices || sceneData.choices.length === 0) {
+                // If no choices, maybe it's an end-game or placeholder
+                const button = document.createElement('button');
+                button.textContent = "Continue...";
+                button.className = "w-full bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-5 rounded-lg text-lg transition duration-300";
+                button.onclick = () => console.log("End of scene.");
+                displays.choiceButtons.appendChild(button);
+                return;
+            }
+
+            sceneData.choices.forEach(choice => {
+                // --- Conditional Choice Check ---
+                let isChoiceVisible = true;
+                if (choice.action === 'conditional') {
+                    // We show all choices, and let the *handler* figure out success/fail.
+                }
+
+                if (isChoiceVisible) {
+                    const button = document.createElement('button');
+                    button.textContent = choice.text;
+                    button.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-5 rounded-lg text-lg transition duration-300 mt-2";
+                    button.onclick = () => handleChoice(choice);
+                    displays.choiceButtons.appendChild(button);
+                }
+            });
+        }
+
+        /**
+         * Checks if the player meets a specific condition.
+         * @param {object} req - The requirement object (e.g., {type: "item", id: "key"}).
+         * @returns {boolean} - True if the condition is met.
+         */
+        function checkCondition(req) {
+            if (!req) return true; // No requirement
+
+            switch (req.type) {
+                case "item":
+                    return playerState.Items.some(item => item.id === req.id);
+                case "coins":
+                    return playerState.Coins >= req.amount;
+                case "status":
+                    return playerState.Status[req.id] === true;
+                default:
+                    return false;
+            }
+        }
+
+        /**
+         * Handles the logic when a player clicks a choice button.
+         * @param {object} choice - The choice object that was clicked.
+         */
+        function handleChoice(choice) {
+            // --- Grant XP and Coins ---
+            // These run on *every* choice click.
+            handleChoiceRewards();
+            // ---
+
+            let targetChapter = currentChapter;
+            let targetScene = currentScene;
+
+            switch (choice.action) {
+                case "goTo":
+                    targetChapter = choice.target.chapter;
+                    targetScene = choice.target.scene;
+                    break;
+
+                case "addItem":
+                    if (addItem(choice.item)) {
+                        targetChapter = choice.target.chapter;
+                        targetScene = choice.target.scene;
+                    } else {
+                        // Inventory was full, stay on this scene
+                        // The addItem function will show an error
+                        return; // Stop processing
+                    }
+                    break;
+
+                case "addMultipleItems":
+                    choice.items.forEach(item => addItem(item, true)); // true = suppress individual notifications
+                    showNotification(`Found ${choice.items.length} new items!`, 'success');
+                    targetChapter = choice.target.chapter;
+                    targetScene = choice.target.scene;
+                    break;
+
+                case "transformItem":
+                    // Remove the 'from' item
+                    playerState.Items = playerState.Items.filter(item => item.id !== choice.fromId);
+                    // Add the 'to' item
+                    if (!addItem(choice.toItem)) {
+                        // This shouldn't happen if we just made space, but good to check.
+                        console.error("Failed to add transformed item.");
+                    }
+                    targetChapter = choice.target.chapter;
+                    targetScene = choice.target.scene;
+                    break;
+
+                case "buyItem":
+                    if (playerState.Coins < choice.cost) {
+                        showError("You don't have enough coins!");
+                        return; // Stay on this scene
+                    }
+
+                    if (!addItem(choice.item)) {
+                        // Inventory full, don't take coins
+                        return; // Stay on this scene
+                    }
+
+                    // Success!
+                    awardCoins(-choice.cost);
+                    showNotification(`Purchased ${choice.item.name}!`, 'success');
+                    targetChapter = choice.target.chapter;
+                    targetScene = choice.target.scene;
+                    break;
+
+                case "conditional":
+                    if (checkCondition(choice.requires)) {
+                        targetChapter = choice.success.chapter;
+                        targetScene = choice.success.scene;
+                    } else {
+                        targetChapter = choice.fail.chapter;
+                        targetScene = choice.fail.scene;
+                    }
+                    break;
+
+                case "takeDamage":
+                    takeDamage(choice.amount);
+                    targetChapter = choice.target.chapter;
+                    targetScene = choice.target.scene;
+                    // Check for death *after* setting target,
+                    // as takeDamage() might override if health hits 0.
+                    if (playerState.Health <= 0) {
+                        return; // Stop processing, takeDamage handled it.
+                    }
+                    break;
+            }
+
+            // Check for Mystic Trader popup after completing an even chapter
+            if (targetChapter !== currentChapter && parseInt(currentChapter) % 4 === 0) { // Changed from 2 to 4
+                showModal('trader');
+                // We *still* load the next scene, so when they close the trader
+                // modal, they are in the right place.
+            }
+
+            // Load the determined next scene
+            loadScene(targetChapter, targetScene);
+        }
+
+        /**
+         * Awards XP and potentially coins on each choice.
+         */
+        function handleChoiceRewards() {
+            // --- XP & Level Up ---
+            if (playerState.Level < MAX_LEVEL) {
+                playerState.XP += 1;
+
+                if (playerState.XP >= playerState.XPToNextLevel) {
+                    // --- LEVEL UP! ---
+                    playerState.Level += 1;
+                    playerState.XP = 0; // Reset XP
+                    // Increase XP required for next level (e.g., 10, 20, 30)
+                    playerState.XPToNextLevel = playerState.Level * 10;
+
+                    showNotification(`LEVEL UP! You are now Level ${playerState.Level}!`, 'success');
+
+                    // Grant new inventory slots every 4 levels
+                    if (playerState.Level % 4 === 0) {
+                        playerState.MaxItems += 1;
+                        playerState.MaxPotions += 1;
+                        showNotification("Inventory Expanded! +1 Item, +1 Potion slot.", 'success');
+                    }
+                }
+            }
+
+            // --- Random Coin Reward ---
+            // 1 in 3 chance (approx) to get coins
+            if (Math.floor(Math.random() * 3) === 0) {
+                const coinsFound = Math.floor(Math.random() * (65 - 20 + 1)) + 20; // Random 20-65
+                awardCoins(coinsFound);
+            }
+
+            updateUI();
+        }
+
+        /**
+         * Safely adds coins (or removes them) and updates the UI.
+         * @param {number} amount - The number of coins to add (can be negative).
+         */
+        function awardCoins(amount) {
+            playerState.Coins += amount;
+            if (playerState.Coins < 0) {
+                playerState.Coins = 0;
+            }
+
+            if (amount > 0) {
+                showNotification(`You found ${amount} Coins!`, 'success');
+            } else if (amount < 0) {
+                // Notifications for *losing* coins are handled by the
+                // choice text or error messages.
+            }
+
+            updateUI();
+        }
+
+        /**
+         * Applies damage to the player and checks for game over.
+         * @param {number} amount - The amount of health to lose.
+         */
+        function takeDamage(amount) {
+            playerState.Health -= amount;
+            if (playerState.Health <= 0) {
+                playerState.Health = 0;
+                updateUI(); // Show 0 health
+                // --- GAME OVER ---
+                showModal('gameOver');
+                // We don't load a new scene. The "Exit" button
+                // will reset their health and reload the current scene.
+            } else {
+                showNotification(`You took ${amount} damage!`, 'error');
+                updateUI();
+            }
+        }
+
+        /**
+         * Handles the Game Over "Exit" button.
+         */
+        function handleGameOver() {
+            // Restore health, stay on same scene, and exit
+            playerState.Health = playerState.MaxHealth;
+            saveGame(); // Save the restored health
+            hideModal('gameOver');
+            showScreen('start'); // Go back to start screen
+        }
+
+        /**
+         * Safely adds an item or potion to the player's inventory.
+         * @param {object} item - The item object to add.
+         * @param {boolean} [suppressNotify=false] - If true, supresses the notification.
+         * @returns {boolean} - True if the item was added, false if inventory was full.
+         */
+        function addItem(item, suppressNotify = false) {
+            if (item.type === 'item') {
+                if (playerState.Items.length >= playerState.MaxItems) {
+                    showError("Your inventory is full! Cannot add " + item.name + ".");
+                    return false;
+                }
+                playerState.Items.push(item);
+
+                // Special check for Iron Armor
+                if (item.id === 'iron_armor' && playerState.MaxHealth < 5) {
+                    playerState.MaxHealth = 5;
+                    playerState.Health = 5; // Full heal
+                    showNotification("Max Health Increased to 5!");
+                }
+            } else if (item.type === 'potion') {
+                if (playerState.Potions.length >= playerState.MaxPotions) {
+                    showError("Your potion belt is full! Cannot add " + item.name + ".");
+                    return false;
+                }
+                playerState.Potions.push(item);
+            }
+
+            if (!suppressNotify) {
+                showNotification(`Added ${item.name} to inventory!`, 'success');
+            }
+
+            updateUI();
+            return true;
+        }
+
+        /**
+         * Opens the Item Detail modal.
+         * @param {object} item - The item object.
+         */
+        function showItemDetail(item) {
+            itemToDrop = item; // Store for the drop button
+            displays.itemDetailName.textContent = item.name;
+            displays.itemDetailDesc.textContent = item.desc;
+            hideModal('inventory');
+            showModal('itemDetail');
+        }
+
+        /**
+         * Opens the Potion Detail modal.
+         * @param {object} potion - The potion object.
+         */
+        function showPotionDetail(potion) {
+            itemToDrop = potion; // Store for the drop button
+            potionToUse = potion; // Store for the use button
+            displays.potionDetailName.textContent = potion.name;
+            displays.potionDetailDesc.textContent = potion.desc;
+            hideModal('inventory');
+            showModal('potionDetail');
+        }
+
+        /**
+         * Opens the Drop Confirmation modal.
+         */
+        function confirmDrop() {
+            displays.dropConfirmText.textContent = `Are you sure you want to drop ${itemToDrop.name}? It will be gone forever.`;
+            hideModal('itemDetail');
+            hideModal('potionDetail');
+            showModal('dropConfirm');
+        }
+
+        /**
+         * Drops the item stored in `itemToDrop`.
+         */
+        function executeDrop() {
+            if (!itemToDrop) return;
+
+            if (itemToDrop.type === 'item') {
+                playerState.Items = playerState.Items.filter(item => item.id !== itemToDrop.id);
+            } else if (itemToDrop.type === 'potion') {
+                playerState.Potions = playerState.Potions.filter(potion => potion.id !== itemToDrop.id);
+            }
+
+            showNotification(`Dropped ${itemToDrop.name}.`, 'error');
+            itemToDrop = null;
+
+            hideModal('dropConfirm');
+            updateUI(); // Re-render inventory
+            showModal('inventory'); // Go back to inventory
+        }
+
+        /**
+         * Uses the potion stored in `potionToUse`.
+         */
+        function usePotion() {
+            if (!potionToUse) return;
+
+            let used = true;
+
+            switch (potionToUse.id) {
+                case "health_potion":
+                    if (playerState.Health === playerState.MaxHealth) {
+                        showError("Your health is already full!");
+                        used = false;
+                    } else {
+                        playerState.Health = playerState.MaxHealth;
+                        showNotification("Restored to full health!", 'success');
+                    }
+                    break;
+                case "mana_potion":
+                    if (playerState.Level >= MAX_LEVEL) {
+                        showError("You are already at the max level!");
+                        used = false;
+                    } else {
+                        playerState.Level += 1;
+                        playerState.XP = 0;
+                        playerState.XPToNextLevel = playerState.Level * 10;
+                        showNotification(`LEVEL UP! You are now Level ${playerState.Level}!`, 'success');
+                    }
+                    break;
+                case "teleport_potion":
+                    const nextChapter = (parseInt(currentChapter) + 1).toString();
+                    if (gameData[nextChapter]) {
+                        showNotification("Teleporting to next chapter!", 'success');
+                        loadScene(nextChapter, 'start');
+                    } else {
+                        showError("You are at the end of the line! Cannot teleport.");
+                        used = false;
+                    }
+                    break;
+                case "stealth_potion":
+                    if (playerState.Status.stealth) {
+                        showError("You are already in stealth!");
+                        used = false;
+                    } else {
+                        playerState.Status.stealth = true;
+                        showNotification("You are now in 'Stealth'.", 'success');
+                    }
+                    break;
+                default:
+                    showError("This potion does nothing... yet.");
+                    used = false;
+                    break;
+            }
+
+            if (used) {
+                // Remove the potion from inventory
+                playerState.Potions = playerState.Potions.filter(p => p.id !== potionToUse.id);
+            }
+
+            potionToUse = null;
+            hideModal('potionDetail');
+            updateUI();
+        }
+
+        /**
+         * Refreshes all UI elements with data from playerState.
+         */
+        function updateUI() {
+            if (!playerState || !playerState.Username) return; // Don't update if state not loaded
+
+            // Stats Bar
+            displays.username.textContent = playerState.Username;
+            displays.chapter.textContent = playerState.Chapter;
+            displays.level.textContent = playerState.Level;
+            displays.coins.textContent = playerState.Coins;
+
+            // Health Bar
+            displays.healthBar.innerHTML = "";
+            for (let i = 0; i < playerState.MaxHealth; i++) {
+                const heart = document.createElement('span');
+                heart.className = i < playerState.Health ? 'heart' : 'heart heart-empty';
+                heart.innerHTML = i < playerState.Health ? '&hearts;' : '&hearts;';
+                displays.healthBar.appendChild(heart);
+            }
+
+            // Inventory Modal
+            // --- Items ---
+            displays.inventoryItems.innerHTML = "";
+            let itemSlotsFree = playerState.MaxItems - playerState.Items.length;
+            displays.itemSlots.textContent = `(${itemSlotsFree} / ${playerState.MaxItems} slots free)`;
+
+            playerState.Items.forEach(item => {
+                const button = document.createElement('button');
+                button.textContent = item.name;
+                button.className = "bg-gray-800 hover:bg-gray-700 text-blue-300 font-semibold py-4 px-2 rounded-lg transition duration-300 text-center";
+                button.onclick = () => showItemDetail(item);
+                displays.inventoryItems.appendChild(button);
+            });
+            // Add empty slots
+            for(let i = 0; i < itemSlotsFree; i++) {
+                const slot = document.createElement('div');
+                slot.textContent = "Empty Slot";
+                slot.className = "bg-gray-800 bg-opacity-50 text-gray-600 py-4 px-2 rounded-lg text-center text-sm";
+                displays.inventoryItems.appendChild(slot);
+            }
+
+            // --- Potions ---
+            displays.inventoryPotions.innerHTML = "";
+            let potionSlotsFree = playerState.MaxPotions - playerState.Potions.length;
+            displays.potionSlots.textContent = `(${potionSlotsFree} / ${playerState.MaxPotions} slots free)`;
+
+            playerState.Potions.forEach(potion => {
+                const button = document.createElement('button');
+                button.textContent = potion.name;
+                button.className = "bg-gray-800 hover:bg-gray-700 text-green-300 font-semibold py-4 px-2 rounded-lg transition duration-300 text-center";
+                button.onclick = () => showPotionDetail(potion);
+                displays.inventoryPotions.appendChild(button);
+            });
+            // Add empty slots
+            for(let i = 0; i < potionSlotsFree; i++) {
+                const slot = document.createElement('div');
+                slot.textContent = "Empty Slot";
+                slot.className = "bg-gray-800 bg-opacity-50 text-gray-600 py-4 px-2 rounded-lg text-center text-sm";
+                displays.inventoryPotions.appendChild(slot);
+            }
+
+            // Trader Modal
+            displays.traderCoins.textContent = playerState.Coins;
+            displays.traderItems.innerHTML = "";
+            traderInventory.forEach(item => {
+                const el = document.createElement('div');
+                el.className = "flex justify-between items-center bg-gray-800 p-4 rounded-lg";
+                el.innerHTML = `
+                    <div>
+                        <h4 class="text-lg font-bold ${item.type === 'potion' ? 'text-green-400' : 'text-blue-400'}">${item.name}</h4>
+                        <p class="text-sm text-gray-400">${item.desc}</p>
+                    </div>
+                    <button class="buy-trader-item bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-4 rounded-lg" data-item-id="${item.id}">
+                        Buy (${item.cost}c)
+                    </button>
+                `;
+                displays.traderItems.appendChild(el);
+            });
+        }
+
+        /**
+         * Handles clicks on "Buy" buttons in the trader modal.
+         * @param {Event} e - The click event.
+         */
+        function handleTraderBuy(e) {
+            if (!e.target.classList.contains('buy-trader-item')) return;
+
+            const itemId = e.target.getAttribute('data-item-id');
+            const item = traderInventory.find(i => i.id === itemId);
+            if (!item) return;
+
+            if (playerState.Coins < item.cost) {
+                showError("You don't have enough coins!");
+                return;
+            }
+
+            if (!addItem(item)) {
+                // addItem will show the "inventory full" error
+                return;
+            }
+
+            // Success
+            awardCoins(-item.cost);
+            showNotification(`Purchased ${item.name}!`, 'success');
+            // Re-render trader coin display
+            displays.traderCoins.textContent = playerState.Coins;
+        }
+
+
+        // --- EVENT LISTENERS ---
+
+        // Start Screen
+        buttons.enter.onclick = () => {
+            // This is where we check for save data
+            playerState = loadSaveGame(); // Load from localStorage
+
+            if (playerState && playerState.Username) {
+                // We have data, show continue screen
+                displaySaveSummary(playerState, displays.saveData);
+                showScreen('continue');
+            } else {
+                // No save data, go to username input
+                playerState = {}; // Ensure state is empty
+                showScreen('username');
+            }
+        };
+        buttons.exit.onclick = () => {
+            // This only works in a desktop context, not a browser
+            // In a WebView (Android), this won't do anything,
+            // which is fine. The in-game exit button is more important.
+            window.close();
+        };
+
+        // Continue Screen
+        buttons.continueGame.onclick = () => initGame(playerState);
+        buttons.newGame.onclick = () => {
+            displaySaveSummary(playerState, displays.saveDataDelete);
+            showScreen('newGameConfirm');
+        };
+
+        // New Game Confirm Screen
+        buttons.confirmDelete.onclick = () => {
+            deleteSave();
+            playerState = {}; // Clear local state
+            showScreen('username');
+        };
+        buttons.cancelDelete.onclick = () => showScreen('continue');
+
+        // Username Screen
+        buttons.startGame.onclick = () => {
+            const username = inputs.username.value.trim();
+            if (username.length === 0) {
+                showError("Please enter a name.");
+                return;
+            }
+            // Create a new save file and start the game
+            const newSave = createNewSave(username);
+            playerState = newSave; // Set as current state
+            saveGame(); // Save the new game
+            initGame(newSave); // Manually start the game
+        };
+
+        // Game Screen
+        buttons.inventory.onclick = () => showModal('inventory');
+        buttons.exitGame.onclick = () => {
+            // Save one last time and go to start screen
+            saveGame();
+            showScreen('start');
+        };
+        displays.gameText.parentElement.onclick = skipTypewriter;
+
+        // Inventory Modal
+        buttons.closeInventory.onclick = () => hideModal('inventory');
+
+        // Trader Modal
+        buttons.closeTrader.onclick = () => hideModal('trader');
+        displays.traderItems.onclick = handleTraderBuy;
+
+        // Item Detail Modal
+        buttons.itemDetailBack.onclick = () => {
+            hideModal('itemDetail');
+            showModal('inventory');
+        };
+        buttons.itemDetailDrop.onclick = confirmDrop;
+
+        // Potion Detail Modal
+        buttons.potionDetailBack.onclick = () => {
+            hideModal('potionDetail');
+            showModal('inventory');
+        };
+        buttons.potionDetailDrop.onclick = confirmDrop;
+        buttons.potionDetailUse.onclick = usePotion;
+
+        // Drop Confirm Modal
+        buttons.dropConfirmCancel.onclick = () => {
+            hideModal('dropConfirm');
+            itemToDrop = null;
+            showModal('inventory');
+        };
+        buttons.dropConfirmYes.onclick = executeDrop;
+
+        // Error Modal
+        buttons.errorModalClose.onclick = () => hideModal('error');
+
+        // Game Over Modal
+        buttons.gameOverExit.onclick = handleGameOver;
+
+
+        // --- INITIALIZATION ---
+
+        /**
+         * Main app initialization.
+         */
+        function main() {
+            // No async auth needed. Just show the start screen.
+            showScreen('start');
+        }
+
+        // Run the app
+        main();
+
+    </script>
+</body>
+</html>
